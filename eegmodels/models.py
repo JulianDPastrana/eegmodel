@@ -1,5 +1,5 @@
-import torch
 import torch.nn as nn
+from torch import Tensor
 
 
 class EEGNet(nn.Module):
@@ -20,7 +20,6 @@ class EEGNet(nn.Module):
 
     def __init__(
         self,
-        chunk_size: int = 128,
         num_electrodes: int = 32,
         kernel_1: int = 64,
         kernel_2: int = 16,
@@ -41,7 +40,7 @@ class EEGNet(nn.Module):
                 in_channels=1,
                 out_channels=F1,
                 kernel_size=(1, kernel_1),
-                padding=(0, kernel_1 // 2),
+                padding="same",
                 bias=False,
             ),
             nn.BatchNorm2d(num_features=F1),
@@ -54,7 +53,7 @@ class EEGNet(nn.Module):
                 bias=False,
             ),
             nn.BatchNorm2d(num_features=D * F1),
-            nn.ELU(inplace=True),
+            nn.ELU(),
             nn.AvgPool2d(kernel_size=(1, pool1)),
             nn.Dropout2d(p=dropout),
         )
@@ -66,7 +65,7 @@ class EEGNet(nn.Module):
                 in_channels=D * F1,
                 out_channels=D * F1,
                 kernel_size=(1, kernel_2),
-                padding=(0, kernel_2 // 2),
+                padding="same",
                 groups=D * F1,
                 bias=False,
             ),
@@ -77,7 +76,7 @@ class EEGNet(nn.Module):
                 bias=False,
             ),
             nn.BatchNorm2d(num_features=F2),
-            nn.ELU(inplace=True),
+            nn.ELU(),
             nn.AvgPool2d(kernel_size=(1, pool2)),
             nn.Dropout2d(p=dropout),
             nn.Flatten(),
@@ -85,22 +84,14 @@ class EEGNet(nn.Module):
         # -------------------------------
         # Classifier
         # -------------------------------
-        self.classifier = torch.nn.Linear(
-            in_features=F2 * (chunk_size // (pool1 * pool2)),
+        self.classifier = nn.LazyLinear(
             out_features=num_classes,
-            bias=False,
+            bias=True,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         # Input shape: (B, C, T)
         x = x.unsqueeze(1)  # (B, 1, C, T)
         x = self.block1(x)  # (B, D * F1, 1, T // pool1)
         x = self.block2(x)  # (B, F2 * (T // (pool1 * pool2)))
         return self.classifier(x)  # (B, num_classes)
-
-
-if __name__ == "__main__":
-    model = EEGNet()
-    # print(model)
-    x = torch.randn(4, 32, 128)
-    print("Output:", model(x).shape)
