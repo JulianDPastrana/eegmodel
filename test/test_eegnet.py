@@ -1,6 +1,6 @@
 import torch
 from torch import Tensor
-from eegmodels.models import EEGNet
+from src.models.eegnet import EEGNet
 
 
 def test_output_default_shape() -> None:

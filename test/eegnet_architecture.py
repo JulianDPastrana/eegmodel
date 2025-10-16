@@ -1,4 +1,4 @@
-from eegmodels.models import EEGNet
+from src.models.eegnet import EEGNet
 from torchinfo import summary
 
 model = EEGNet(
