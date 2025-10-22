@@ -26,7 +26,6 @@ class EEGDataset(Dataset):
 
         mat_files: List[str] = []
         excel_files: dict[str, str] = {}
-
         # --- scan once
         for root, _, files in os.walk(self.root_dir):
             for fname in files:
@@ -62,7 +61,6 @@ class EEGDataset(Dataset):
         if self.eeg_key not in mat_data:
             raise KeyError(f"Key '{self.eeg_key}' not found in {mat_path}")
 
-        # NOTE: loadmat returns numpy arrays; we convert straight to torch
         eeg: Tensor = torch.as_tensor(
             mat_data[self.eeg_key]
         ).float()  # (N, T) or (N, ..., T)

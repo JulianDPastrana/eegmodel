@@ -32,9 +32,7 @@ class EEGNet(nn.Module):
         dropout: float = 0.5,
     ) -> None:
         super().__init__()
-        # -------------------------------
         # Block 1: Temporal -> Spatial
-        # -------------------------------
         self.block1 = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
@@ -57,9 +55,7 @@ class EEGNet(nn.Module):
             nn.AvgPool2d(kernel_size=(1, pool1)),
             nn.Dropout2d(p=dropout),
         )
-        # -------------------------------
         # Block 2: Separable (Depthwise -> Pointwise)
-        # -------------------------------
         self.block2 = nn.Sequential(
             nn.Conv2d(
                 in_channels=D * F1,
@@ -81,9 +77,7 @@ class EEGNet(nn.Module):
             nn.Dropout2d(p=dropout),
             nn.Flatten(),
         )
-        # -------------------------------
         # Classifier
-        # -------------------------------
         self.classifier = nn.LazyLinear(
             out_features=num_classes,
             bias=True,
