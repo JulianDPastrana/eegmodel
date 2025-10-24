@@ -17,3 +17,4 @@ eegvenv/
 # Heavy data files
 *.mat
 *.xlsx
+*.edf
