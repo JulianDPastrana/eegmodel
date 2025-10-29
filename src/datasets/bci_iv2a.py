@@ -1,9 +1,9 @@
 import os
-from typing import Callable, Optional, Union, Sequence
+from typing import Callable, Optional, Sequence, Union
 
+import mne
 import torch
 from torch.utils.data import Dataset
-import mne
 
 
 class BCIIV2aDataset(Dataset):
