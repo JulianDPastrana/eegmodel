@@ -1,13 +1,14 @@
 import os
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Optional
 
 import mne
 import torch
+import numpy as np
 from torch.utils.data import Dataset
 
 
 class BCIIV2aDataset(Dataset):
-    _wanted = {
+    _label_dict = {
         "769": ("left", 0),
         "770": ("right", 1),
         "771": ("feet", 2),
@@ -17,8 +18,8 @@ class BCIIV2aDataset(Dataset):
     def __init__(
         self,
         root: str = "../../data/BCI_IV_2a/",
-        subjects: Union[int, Sequence[int]] = 1,
-        split: str = "train",
+        subject: int = 1,
+        split: str = "T", # T or E
         tmin: float = 0.0,
         tmax: float = 4.0,
         transform: Optional[Callable] = None,
@@ -28,75 +29,77 @@ class BCIIV2aDataset(Dataset):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         root = os.path.abspath(os.path.join(script_dir, root))
         print(root)
-        if isinstance(subjects, int):
-            subjects = [subjects]
-        subjects = list(subjects)
 
-        split_code = split.strip().upper()[0]
-        if split_code not in ("T", "E"):
-            raise ValueError("split must be one of {'train','eval','T','E'}")
-        self.split = split_code
+        self.split = split
 
-        all_X, all_y = [], []
-        loaded_any = False
+        
+        eeg, label = self._load_data_for_subject(
+            root, subject, tmin, tmax
+        )
+            
+        self.X = eeg
+        self.y = label
 
-        for subj in subjects:
-            fname = os.path.join(root, f"A{subj:02d}{self.split}.edf")
-            if not os.path.exists(fname):
-                raise FileNotFoundError(f"Couldn't find {fname}")
+    def _load_data_for_subject(self, root: str, subj: int, tmin: float, tmax: float):
 
-            raw = mne.io.read_raw_edf(fname, preload=True, verbose=False)
-            raw.pick_types(eeg=True, eog=False, stim=False)
+        file_path = os.path.join(root, f"A{subj:02d}{self.split}.edf")
 
-            events_np, ann_map = mne.events_from_annotations(raw, verbose=False)
-            events = torch.from_numpy(events_np).long()
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Couldn't find {file_path}")
 
-            event_id, label_map = {}, {}
-            for desc, code in ann_map.items():
-                for key, (name, lab) in self._wanted.items():
-                    if key in desc:
-                        event_id[name] = code
-                        label_map[code] = lab
+        raw = mne.io.read_raw_edf(
+            input_fname=file_path,
+            eog=["EOG-left", "EOG-central", "EOG-right"],
+            preload=True
+            )
+        raw.pick("eeg")
 
-            if not event_id:
-                raise RuntimeError(
-                    "Couldn't find class cue annotations (769..772). "
-                    "Ensure you're using BCI IV-2a .gdf files."
-                )
+        self.sfreq = raw.info["sfreq"]
+        self.ch_names = raw.info["ch_names"]
+    
 
-            wanted_codes = torch.tensor(list(label_map.keys()), dtype=torch.long)
-            cue_mask = torch.isin(events[:, 2], wanted_codes)
-            cue_events = events[cue_mask].cpu().numpy()
+        events, ann_map = mne.events_from_annotations(raw)
 
-            epochs = mne.Epochs(
-                raw,
-                cue_events,
-                event_id=event_id,
-                tmin=tmin,
-                tmax=tmax,
-                baseline=None,
-                preload=True,
-                verbose=False,
+        candidates = {
+        "T1": ("left", 0), "T2": ("right", 1), "T3": ("feet", 2), "T4": ("tongue", 3),
+        "769": ("left", 0), "770": ("right", 1), "771": ("feet", 2), "772": ("tongue", 3),
+        "Stimulus/769": ("left", 0), "Stimulus/770": ("right", 1),
+        "Stimulus/771": ("feet", 2), "Stimulus/772": ("tongue", 3),
+    }
+
+        event_id, label_map = {}, {}
+        for desc, code in ann_map.items():
+            for key, (name, lab) in candidates.items():
+                print(desc, key)
+                if key in desc:
+                    event_id[name] = code
+                    label_map[code] = lab
+
+        if not event_id:
+            raise RuntimeError(
+                "Couldn't find class cue annotations (769, 770, 771, 772). "
+                f"File name: A{subj:02d}{self.split}.edf"
             )
 
-            X_t = torch.from_numpy(epochs.get_data()).float()
-            event_codes = torch.from_numpy(epochs.events[:, 2]).long()
-            y_t = torch.empty_like(event_codes, dtype=torch.long)
-            for code, lab in label_map.items():
-                y_t[event_codes == code] = lab
+        wanted_codes = list(label_map.keys())
+        cue_mask = np.isin(events[:, 2], wanted_codes)
+        cue_events = events[cue_mask]
 
-            all_X.append(X_t)
-            all_y.append(y_t)
+        epochs = mne.Epochs(
+            raw,
+            cue_events,
+            event_id=event_id,
+            tmin=tmin,
+            tmax=tmax,
+            baseline=None,
+            preload=True,
+        )
 
-            self.sfreq = float(raw.info["sfreq"])
-            self.ch_names = list(epochs.ch_names)
-            loaded_any = True
+        eeg = torch.from_numpy(epochs.get_data())
+        event_codes = torch.from_numpy(epochs.events[:, 2])
+        label = torch.tensor([label_map[int(c)] for c in event_codes], dtype=torch.long)
 
-        if not loaded_any:
-            raise ValueError("No subjects were loaded; check 'subjects' and data path.")
-
-        self.X = torch.cat(all_X, dim=0)
-        self.y = torch.cat(all_y, dim=0)
+        return eeg, label
 
     def __len__(self):
         return len(self.y)
@@ -112,8 +115,8 @@ if __name__ == "__main__":
     print("Loading BCI Competition IV 2a dataset...")
 
     ds = BCIIV2aDataset(
-        subjects=1,
-        split="train",
+        subject=1,
+        split="E",
         tmin=0.0,
         tmax=4.0,
     )
@@ -121,3 +124,8 @@ if __name__ == "__main__":
     print(f"Loaded {len(ds)} epochs")
     print(f"Sampling frequency: {ds.sfreq} Hz")
     print(f"Channels ({len(ds.ch_names)}): {ds.ch_names} ...")
+
+    # rand_idx = torch.randint(0, len(ds), (1,)).item()
+    for rand_idx in range(50):
+        x, y = ds[rand_idx]
+        print(f"Random epoch {rand_idx}: x shape = {x.shape}, y = {y}")
