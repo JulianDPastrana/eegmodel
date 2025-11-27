@@ -1,0 +1,75 @@
+# Project Configuration
+
+# Model parameters
+model:
+  eegconformer:
+    emb_size: 64
+    num_heads: 8
+    num_layers: 3
+    dim_feedforward: 256
+    dropout: 0.4
+    temporal_kernel: 25
+    pool_kernel: 75
+    pool_stride: 15
+  
+  eegnet:
+    dropout: 0.5
+    f1: 8
+    d: 2
+
+# Training parameters
+training:
+  epochs: 50
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.0
+  optimizer: "adam"
+  betas: [0.9, 0.999]
+  
+  # Data split
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+
+# Dataset paths
+data:
+  root: "data/raw"
+  processed: "data/processed"
+  
+  bci_iv_2a:
+    path: "data/raw/BCI_IV_2a"
+    subjects: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    tmin: 0.0
+    tmax: 4.0
+  
+  adhd:
+    path: "data/raw/EEG-DATASET-ADHD-CONTROL"
+    window_duration: 2
+    overlap: 0.5
+  
+  supervised:
+    path: "data/raw"
+    eeg_key: "data"
+
+# Output directories
+output:
+  checkpoints: "checkpoints"
+  logs: "logs"
+  plots: "plots"
+
+# Device configuration
+device: "cuda"  # cuda, cpu, or mps
+
+# Random seed for reproducibility
+seed: 42
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

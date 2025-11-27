@@ -1,20 +1,57 @@
-# Python cache
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 *.pyc
 *.pyo
 *.pyd
-*.cache
 
-# Jupyter notebooks checkpoints
-.ipynb_checkpoints
-
-# Pytest cache
-.pytest_cache/
-
-# Virtual environment
+# Virtual Environment
+venv/
+env/
+ENV/
 eegvenv/
 
-# Heavy data files
-*.mat
-*.xlsx
-*.edf
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+notebooks/*.ipynb
+
+# PyTorch
+*.pt
+*.pth
+*.ckpt
+checkpoints/*.pt
+checkpoints/*.pth
+
+# Data (keep structure, ignore large files)
+data/raw/**/*.edf
+data/raw/**/*.mat
+data/raw/**/*.xlsx
+data/processed/**/*.npy
+data/processed/**/*.pkl
+
+# Logs and outputs
+logs/
+*.log
+plots/
+wandb/
+mlruns/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS files
+Thumbs.db
+.DS_Store
